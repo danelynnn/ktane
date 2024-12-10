@@ -1,5 +1,5 @@
-#define WIRE_ONE 2  // Read pin
-#define WIRE_SUCCESS 8
+#define WIRE_SUCCESS 2
+#define WIRE_ONE 3  // Read pin
 
 enum Color {
   NONE,
@@ -18,7 +18,7 @@ int answer = -1;
 bool success = false;
 
 // hardcoding things, this will eventually be randomised/sent from elsewhere
-Color colors[] = {NONE, BLUE, YELLOW, RED, NONE, RED};
+Color colors[] = {RED, NONE, RED, YELLOW, BLUE, NONE};
 char serial[] = "AL5QF3";
 
 int countWires(Color color) {
@@ -168,13 +168,14 @@ void onChange(int pin, int status) {
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
-  digitalWrite(WIRE_SUCCESS, success);
 
+  pinMode(WIRE_SUCCESS, OUTPUT);
   // activate all pins as input
   for (int i=0; i<6; i++)
     pinMode(WIRE_ONE+i, INPUT);
   
   Serial.println("setup complete, starting state");
+  digitalWrite(WIRE_SUCCESS, success);
   printState();
 }
 int readout[] = {0, 0, 0, 0, 0, 0};
