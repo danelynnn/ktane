@@ -1,4 +1,5 @@
-#define RPin 2  // Read pin
+#define WIRE_ONE 2  // Read pin
+#define WIRE_SUCCESS 8
 
 enum Color {
   NONE,
@@ -10,19 +11,15 @@ enum Color {
   BLACK
 };
 
-int wireState = 0;
-int states[] = {0, 0, 0, 0, 0, 0};
 int phase = 0; // 0 = setup, 1 = execution
+int state[] = {-1, -1, -1, -1, -1, -1};
+int strikes = 0;
+int answer = -1;
+bool success = false;
 
 // hardcoding things, this will eventually be randomised/sent from elsewhere
-Color colors[] = {BLUE, RED, BLUE, NONE, NONE, NONE};
+Color colors[] = {NONE, BLUE, YELLOW, RED, NONE, RED};
 char serial[] = "AL5QF3";
-
-void setup() {
-  Serial.begin(9600);
-  // put your setup code here, to run once:
-  pinMode(RPin, INPUT);      // Separate pin for Q3
-}
 
 int countWires(Color color) {
   int count = 0;
@@ -34,16 +31,15 @@ int countWires(Color color) {
   return count;
 }
 
-void printArray(Color colors[], int len) {
+void printArray(int arr[], int len) {
   for (int i=0; i<len; i++) {
-    Serial.print(colors[i]);
+    Serial.print(arr[i]);
     Serial.print(" ");
   }
-  Serial.println();
 }
 
-int handleRules() {
-  Color connectedWires[6]; // list of connected *indices*
+int handleRules(Color colors[]) {
+  int connectedWires[6]; // list of connected *indices*
   int numWires = 0;
   bool isSerialOdd = (serial[5] - '0') % 2 == 1;
 
@@ -52,7 +48,6 @@ int handleRules() {
       connectedWires[numWires++] = i;
     }
   }
-
 
   switch(numWires) {
     case 3:
@@ -113,42 +108,95 @@ int handleRules() {
       break;
   }
 }
-void loop() {
-  wireState = digitalRead(RPin);
 
-  if (phase == 0 && millis() >= 100) {
-    Serial.println("starting setup phase");
-    bool setupSuccessful = true;
+void printState() {
+  Serial.print("we are in phase ");
+  Serial.print(phase);
+  Serial.print(", current state is ");
+  printArray(state, 6);
+
+  if (phase == 1 || phase == 2) {
+    Serial.print(", strikes = ");
+    Serial.print(strikes);
+    Serial.print(", correct answer is ");
+    Serial.print(answer);
+    Serial.print(", module status is ");
+
+    if (success) {
+      Serial.println("defused");
+    } else {
+      Serial.println("pending");
+    }
+  } else {
+    Serial.println();
+  }
+}
+
+void onChange(int pin, int status) {
+  Serial.print("pin ");
+  Serial.print(pin);
+  Serial.print(" has been set to ");
+  Serial.print(status);
+  Serial.println();
+
+  if (phase == 0) {
+    bool ready = true;
     for (int i=0; i<6; i++) {
-      
-      states[i] = digitalRead(RPin + i);
-
-      if (((states[i] == HIGH) && (colors[i] == NONE)) || ((states[i] == LOW) && (colors[i] != NONE))) {
-        Serial.print("failed setup on ");
-        Serial.print(i);
-        Serial.println();
-        setupSuccessful = false;
-        break;
-      }
-
-      if (states[i]) {
-        Serial.print(i);
-        Serial.print(" ");
-        Serial.println();
+      if ((colors[i] != NONE && state[i] == 1) || (colors[i] == NONE && state[i] == 0)) {
+      } else {
+        ready = false;
       }
     }
-    if (setupSuccessful) {
+
+    if (ready) {
       phase = 1;
+      answer = handleRules(colors);
     }
   } else if (phase == 1) {
-    // Serial.println("onto execution phase");
-    Serial.println(handleRules());
-    for (int i=0; i<6; i++) {
-      if (states[i] == HIGH && states[i] != digitalRead(RPin + i)) {
-        Serial.println("found a cut");
-        Serial.println(i);
-        states[i] = LOW;
+    if (pin == answer) {
+      success = true;
+      phase = 2;
+      digitalWrite(WIRE_SUCCESS, true);
+    } else {
+      strikes++;
+    }
+  }
+
+  printState();
+}
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  digitalWrite(WIRE_SUCCESS, success);
+
+  // activate all pins as input
+  for (int i=0; i<6; i++)
+    pinMode(WIRE_ONE+i, INPUT);
+  
+  Serial.println("setup complete, starting state");
+  printState();
+}
+int readout[] = {0, 0, 0, 0, 0, 0};
+int debounce[] = {0, 0, 0, 0, 0, 0};
+void loop() {
+  for (int i=0; i<6; i++)
+    readout[i] = digitalRead(WIRE_ONE+i);
+  
+  for (int i=0; i<6; i++) {
+    if (readout[i] != state[i]) {
+      // state[i] = readout[i];
+      // onChange(i, state[i]);
+
+      debounce[i]++;
+      if (debounce[i] == 10000) {
+        state[i] = readout[i];
+        onChange(i, state[i]);
+
+        debounce[i] = 0;
       }
+    } else {
+      debounce[i] = 0;
     }
   }
 }
