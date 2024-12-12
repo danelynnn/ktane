@@ -6,13 +6,13 @@ enum Color {
   YELLOW, GREEN, BLUE, RED
 };
 
-int phase = 0;
+int phase = 2;
 int colors[] = {YELLOW, GREEN, GREEN, RED};
 const int lenColors = 4;
 int strikes = 0;
 bool success = false;
 
-int start;
+long start;
 
 // hardcoding things, this will eventually be randomised/sent from elsewhere
 char serial[] = "DL5QF2";
