@@ -6,7 +6,7 @@ enum Color {
   YELLOW, GREEN, BLUE, RED
 };
 
-int phase = 2;
+int phase = 0;
 int colors[] = {YELLOW, GREEN, GREEN, RED};
 const int lenColors = 4;
 int strikes = 0;
