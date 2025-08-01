@@ -2,33 +2,49 @@
 #define COLOR_ROOT 3
 #define BUTTON_ROOT 8
 
+#include <Wire.h>
+
 enum Color {
   YELLOW, GREEN, BLUE, RED
 };
 
+// game state
 int phase = 0;
+bool success = false;
+long start;
+
+// puzzle description
 int colors[] = {YELLOW, GREEN, GREEN, RED};
 const int lenColors = 4;
-int strikes = 0;
-bool success = false;
-
-long start;
 
 // hardcoding things, this will eventually be randomised/sent from elsewhere
 char serial[] = "DL5QF2";
-char *strings[] = {"Y", "G", "B", "R"};
+int strikes = 0;
 
+// helper functions
 void printArray(int arr[], int len) {
   for (int i=0; i<len; i++) {
     Serial.print(arr[i]);
     Serial.print(" ");
   }
 }
+char *strings[] = {"Y", "G", "B", "R"};
 void printArray(Color arr[], int len) {
   for (int i=0; i<len; i++) {
     Serial.print(strings[arr[i]]);
     Serial.print(" ");
   }
+}
+
+char* receive(int address, int bytes) {
+  Wire.requestFrom(address, bytes);
+
+  char string[Wire.available()];
+  int index = 0;
+  while (Wire.available() > 1) {
+    string[index++] = Wire.read();
+  }
+  return string;
 }
 
 Color currentColor;
@@ -46,12 +62,9 @@ void glowColor(Color color) {
 }
 
 bool hasSerialVowel() {
-  for (int i=0; i<6; i++) {
-    if (serial[i] == 'A' || serial[i] == 'E' || serial[i] == 'I' || serial[i] == 'O' || serial[i] == 'U')
-      return true;
-  }
-
-  return false;
+  char* data = receive(1, 2);
+  Serial.println(data);
+  return true;
 }
 const Color vowel[][4] = {
   {GREEN, YELLOW, RED, BLUE},
@@ -65,6 +78,13 @@ const Color nowel[][4] = {
 };
 Color answer[lenColors];
 void handleRules() {
+  
+
+  while (Wire.available()) { // peripheral may send less than requested
+    char c = Wire.read(); // receive a byte as character
+    Serial.print(c);         // print the character
+  }
+
   if (hasSerialVowel()) {
     for (int i=0; i<lenColors; i++)
       answer[i] = vowel[strikes][colors[i]];
@@ -123,6 +143,8 @@ void printState() {
 
 void setup() {
   Serial.begin(9600);
+  Wire.begin(2);
+
   start = millis();
   handleRules();
 
