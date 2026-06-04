@@ -1,5 +1,6 @@
 #define WIRE_SUCCESS 2
 #define WIRE_ONE 3  // Read pin
+#include <Wire.h>
 
 enum Color {
   NONE,
@@ -11,15 +12,21 @@ enum Color {
   BLACK
 };
 
-int phase = 0; // 0 = setup, 1 = execution
+enum RequestType {
+  ACTIVATE, SERIALODD, SERIALVOWEL, BATTERY, TIMER, STRIKES
+};
+
+enum Phase {
+  SETUP, PENDING, ACTIVE, SOLVED
+};
+
+Phase phase = SETUP;
 int state[] = {-1, -1, -1, -1, -1, -1};
-int strikes = 0;
 int answer = -1;
-bool success = false;
 
 // hardcoding things, this will eventually be randomised/sent from elsewhere
 Color colors[] = {RED, NONE, RED, YELLOW, BLUE, NONE};
-char serial[] = "AL5QF3";
+bool isSerialOdd = true;
 
 int countWires(Color color) {
   int count = 0;
@@ -41,7 +48,6 @@ void printArray(int arr[], int len) {
 int handleRules(Color colors[]) {
   int connectedWires[6]; // list of connected *indices*
   int numWires = 0;
-  bool isSerialOdd = (serial[5] - '0') % 2 == 1;
 
   for (int i=0; i<6; i++) {
     if (colors[i] != NONE) {
@@ -115,21 +121,12 @@ void printState() {
   Serial.print(", current state is ");
   printArray(state, 6);
 
-  if (phase == 1 || phase == 2) {
-    Serial.print(", strikes = ");
-    Serial.print(strikes);
+  if (phase == ACTIVE) {
     Serial.print(", correct answer is ");
     Serial.print(answer);
-    Serial.print(", module status is ");
-
-    if (success) {
-      Serial.println("defused");
-    } else {
-      Serial.println("pending");
-    }
-  } else {
-    Serial.println();
   }
+  
+  Serial.println();
 }
 
 void onChange(int pin, int status) {
@@ -139,7 +136,7 @@ void onChange(int pin, int status) {
   Serial.print(status);
   Serial.println();
 
-  if (phase == 0) {
+  if (phase == SETUP) {
     bool ready = true;
     for (int i=0; i<6; i++) {
       if ((colors[i] != NONE && state[i] == 1) || (colors[i] == NONE && state[i] == 0)) {
@@ -152,13 +149,22 @@ void onChange(int pin, int status) {
       phase = 1;
       answer = handleRules(colors);
     }
-  } else if (phase == 1) {
+  } else if (phase == ACTIVE) {
     if (pin == answer) {
-      success = true;
-      phase = 2;
+      phase = SOLVED;
       digitalWrite(WIRE_SUCCESS, true);
+
+      Wire.beginTransmission(8);
+      Wire.write(1);
+      Wire.write(69);
+      Wire.endTransmission();
     } else {
-      strikes++;
+      Serial.println("mistake");
+
+      Wire.beginTransmission(8);
+      Wire.write(1);
+      Wire.write(-1);
+      Wire.endTransmission();
     }
   }
 
@@ -169,15 +175,19 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
 
+  Wire.begin(9);
+  Wire.onReceive(receiveData);
+  Wire.onRequest(requestData);
+
   pinMode(WIRE_SUCCESS, OUTPUT);
-  // activate all pins as input
+  // set all pins as input
   for (int i=0; i<6; i++)
     pinMode(WIRE_ONE+i, INPUT);
   
   Serial.println("setup complete, starting state");
-  digitalWrite(WIRE_SUCCESS, success);
   printState();
 }
+
 int readout[] = {0, 0, 0, 0, 0, 0};
 int debounce[] = {0, 0, 0, 0, 0, 0};
 void loop() {
@@ -200,4 +210,26 @@ void loop() {
       debounce[i] = 0;
     }
   }
+}
+
+void receiveData(int bytes) {
+  RequestType signal = Wire.read();
+  Serial.print("received data, type ");
+  Serial.println(signal);
+  int data = Wire.read();
+
+  switch (signal) {
+  case ACTIVATE:
+    Serial.println("activate received");
+    phase = ACTIVE;
+    printState();
+  case SERIALODD:
+    isSerialOdd = data;
+  }
+}
+
+void requestData() {
+  Serial.print("sending status ");
+  Serial.println(phase);
+  Wire.write(phase);
 }
