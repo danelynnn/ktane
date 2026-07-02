@@ -10,24 +10,24 @@ as reality cannot be procedurally generated, and is hence often disappointing, t
 
 as such, the briefcase will have the following states:
 
+```
+enum Phase {
+  SETUP, ACTIVE, SOLVED
+};
+```
+
 1. setup (if applicable):  
-   puzzle is inactive, time is frozen at maximum time (e.g. 5:00)  
+   puzzle is inactive, time is frozen at starting time (e.g. 5:00)  
    modules can be inserted or disconnected  
    modules cannot cause strikes or be completed
 
 2. active:
    puzzle is active, time will start ticking down, and modules can be completed/cause mistakes
 
-3. celebration (win/loss)
+3. solved (win/loss):
    puzzle is inactive, time is at 0:00  
    modules should not be connected or disconnected at this time  
    modules cannot cause strikes or be completed
-
-```
-enum Phase {
-  SETUP, ACTIVE, SOLVED
-};
-```
 
 # modules
 
@@ -50,7 +50,7 @@ further circuit schematics can be found in the `kicad/` folder.
 
 ## controller "module"
 
-this isn't an actual module, but it has the same footprint and is effectively just like a normal module, so we're counting it here. this is the designated main hub for all of the briefcase's unique properties, including:
+this isn't an actual module, but it has the same footprint and effectively acts as a normal module, so we're counting it here. this is the designated main hub for all of the briefcase's unique properties, including:
 
 - battery count
 - indicators
